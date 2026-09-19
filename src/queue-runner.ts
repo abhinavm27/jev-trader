@@ -21,7 +21,7 @@ const costs={gasMon:.0357,feeBps:0,participation:.1};
 const accounts:Record<string,QueueAccount>={};
 for(const [name,a] of Object.entries(saved?.accounts??{}) as [string,any][]){
  const restored=Object.assign(new QueueAccount(a.initialUsd,a.initialMid,a.costs),a);
- if(restored.order){restored.requestCancel(0,saved.latest.mid);restored.finishBlock(0);restored.gapCancellations++;}
+ if(restored.order){restored.requestCancel(0,saved.latest.mid);restored.order=null;restored.queue=null;restored.gapCancellations++;}
  accounts[name]=restored;
 }
 const estimator=new QueueRates();
@@ -65,7 +65,7 @@ async function sample(){if(busy)return;busy=true;
   const now=Date.now(),gap=!lastAt||now-lastAt>3000||performance.now()-begin>2000;
   const prints=feed.drainPrints().filter(p=>lastBlock>0&&p.block>lastBlock&&p.block<=book.block);
   if(!accounts.queue_signal)for(const name of ['queue_signal','queue_blind'])accounts[name]=new QueueAccount(100,book.mid,costs);
-  if(gap){gaps++;estimator.previous=null;estimator.rates.seconds=0;for(const a of Object.values(accounts)){if(a.order){a.requestCancel(book.block,book.mid);a.finishBlock(book.block);a.gapCancellations++;}}}
+  if(gap){gaps++;estimator.previous=null;estimator.rates.seconds=0;for(const a of Object.values(accounts)){if(a.order){a.requestCancel(book.block,book.mid);a.order=null;a.queue=null;a.gapCancellations++;}}}
   for(const [name,a] of Object.entries(accounts)){
    if(!gap)for(const p of prints){const o=a.order?{...a.order}:null,q=a.queue?{...a.queue}:null;const filled=a.consume(p);if(filled&&o){event('fill',{strategy:name,price:o.price,size:filled,queue:q,print:p},now);for(const seconds of [5,15,30,60])pending.push({type:'markout',strategy:name,seconds,due:now+seconds*1000,price:o.price,side:o.side,size:filled,gaps});}}
    a.finishBlock(book.block);a.armAt(book);
