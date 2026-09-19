@@ -1,0 +1,15 @@
+import {test,expect} from 'bun:test';
+import {QueueAccount,QueueRates,forecast,choose} from './queue';
+import type {Book} from './market';
+const book=(block=1)=>({block,bid:.099,ask:.101,mid:.1,spreadBps:200,imbalance:0,depthBps:{},levels:{bids:[[.099,1000],[.098,1000]],asks:[[.101,1000],[.102,1000]]}} as Book);
+const account=()=>new QueueAccount(100,.1,{gasMon:.0357,feeBps:0,participation:.1});
+test('zero rates mean no depletion; reproducible forecast',()=>{const r=new QueueRates().rates;r.seconds=60;const f=forecast(book(),r);expect(f.noMoveProbability).toBe(1);expect(f).toEqual(forecast(book(),r));});
+test('ask removal forecasts upward first move',()=>{const r=new QueueRates().rates;r.seconds=60;r.askRemove=10000;const f=forecast(book(),r);expect(f.upProbability).toBe(1);expect(f.firstMoveBps).toBeGreaterThan(0);});
+test('net residual does not double count traded removal',()=>{const r=new QueueRates();r.update(book(),[],1000);const b=book(2);b.levels.bids[0]![1]=900;r.update(b,[{block:2,price:.099,size:100,side:'sell'}],2000);expect(r.rates.bidAdd).toBe(0);expect(r.rates.bidRemove).toBeCloseTo(100*(1-Math.exp(-1/20)));});
+test('gaps reset warmup',()=>{const r=new QueueRates();r.update(book(),[],1000);r.rates.seconds=100;r.update(book(2),[],5000);expect(r.rates.seconds).toBe(0);});
+test('arrival joins behind displayed size; no same-block fills',()=>{const a=account();a.place('buy',book(),2,0,'x');a.armAt(book(2));expect(a.queue?.armed).toBe(false);a.armAt(book(3));expect(a.queue?.ahead).toBe(1000);expect(a.consume({block:3,side:'sell',price:.099,size:20000})).toBe(0);});
+test('only trade volume consumes queue; fill capped at participation',()=>{const a=account();a.place('buy',book(),1,0,'x');a.armAt(book(2));const b=book(3);b.levels.bids[0]![1]=0;a.armAt(b);expect(a.queue?.ahead).toBe(1000);expect(a.consume({block:3,side:'sell',price:.099,size:900})).toBe(0);expect(a.consume({block:4,side:'sell',price:.099,size:200})).toBe(20);expect(a.order?.remaining).toBe(180);});
+test('cancel is charged once and prevents fills at arrival block',()=>{const a=account();a.place('buy',book(),1,0,'x');a.armAt(book(2));expect(a.requestCancel(4,.1)).toBe(true);expect(a.requestCancel(4,.1)).toBe(false);expect(a.consume({block:4,side:'sell',price:.099,size:20000})).toBe(0);expect(a.order).toBeNull();expect(a.cancels).toBe(1);});
+test('post-only arrival rejects crossed quote',()=>{const a=account();a.place('buy',book(),1,0,'x');const b=book(2);b.ask=.098;a.armAt(b);expect(a.order).toBeNull();expect(a.postOnlyRejected).toBe(1);});
+test('no replacement while order pending; no unfunded sell',()=>{const a=account();a.place('buy',book(),1,0,'x');expect(a.place('sell',book(),2,0,'y')).toBe(false);const poor=new QueueAccount(1,.1,a.costs);expect(poor.place('sell',book(),1,0,'z')).toBe(false);});
+test('signal cannot trade before warmup',()=>{const a=account(),r=new QueueRates().rates;expect(choose(book(),r,forecast(book(),r),a).action).toBe('abstain');});
