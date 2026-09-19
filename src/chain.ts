@@ -4,9 +4,11 @@ import { config } from "./config";
 export async function rpc<T = unknown>(method: string, params: unknown[] = [], url = config.rpcUrl): Promise<T> {
   const res = await fetch(url, {
     method: "POST",
+    signal: AbortSignal.timeout(8000),
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
   });
+  if (!res.ok) throw new Error(`${method}: RPC HTTP ${res.status}`);
   const json = (await res.json()) as { result?: T; error?: { code: number; message: string } };
   if (json.error) throw new Error(`${method}: ${json.error.message} (${json.error.code})`);
   return json.result as T;

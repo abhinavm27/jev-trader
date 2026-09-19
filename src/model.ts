@@ -45,8 +45,8 @@ export const QUESTIONS = {
     type: "choice",
     instructions: {
       question: "Will MON be higher or lower than the current mid after `horizonBlocks` more blocks?",
-      goal: "Trade MON-USDC on Kuru. Blocks are ~300ms; `horizonBlocks` (~30 s) is the horizon. A decision is made every few blocks and held until the next one. The trade crosses the spread (`spreadBps`), so the move must beat that cost.",
-      timing: "The order executes as an immediate-or-cancel market order in the next block.",
+      goal: "Trade MON-USDC on Kuru. Blocks are ~300ms; `horizonBlocks` (~30 s) is the horizon. Orders are passive post-only limit orders. Account for the spread, fill uncertainty, inventory risk, and transaction costs.",
+      timing: "The order may become active after submission latency. It only fills if a taker trades against it; a fill is not guaranteed.",
       inputs: "Taker flow is the strongest signal: `trades.cvdMon` (taker buys minus taker sells over the horizon), `trades.lastSide` and `recentTrades` show who is hitting the book. `depth` and `book` show resting liquidity per side at several distances from mid; thin depth on one side means price moves easily that way. `returnsBps` and `recentMids` show the path over the horizon. If `allowed.buy` is false the trade will be a sell regardless, and vice versa.",
     },
     criteria: {
