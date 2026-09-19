@@ -28,7 +28,9 @@ export const config = {
   pendingBlocks: 10, // give up on a tx with no receipt after this many blocks
   refreshBlocks: 200, // how often to refresh the fee estimate, margin balances and the vault check
   horizonBlocks: Number(env("HORIZON_BLOCKS", "100")), // the model is asked about the move over this many blocks (~30 s)
-  model: env("MODEL", "mock") as "mock" | "jev",
+  model: env("MODEL", "mock") as "mock" | "jev" | "openrouter",
+  openRouterApiKey: env("OPENROUTER_API_KEY"),
+  openRouterModelId: env("OPENROUTER_MODEL_ID", "~typesafe/jev-latest")!,
   jevModelId: env("JEV_MODEL_ID", "jev-latest")!,
   jevUsdPerMTok: 0.042,
   port: Number(env("PORT", "3000")),
